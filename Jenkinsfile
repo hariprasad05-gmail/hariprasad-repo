@@ -14,14 +14,18 @@ pipeline {
         }
         stage('Install Dependencies') {
             steps {
+                dir('template-vanilla') {
                     bat 'npm install'
                 }
+        }
             }
        
         stage('Build') {
             steps {
+                dir('template-vanilla') {
                     bat 'npm run build'
                 }
+            }
             }
     }
     post {
