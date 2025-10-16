@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NODE_HOME = 'C:\Program Files\nodejs'
+        NODE_HOME = '.\\Program Files\\nodejs'
         PATH = "${env.NODE_HOME};${env.PATH}"
     }
 
