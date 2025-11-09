@@ -16,6 +16,7 @@ spec:
     spec:
       containers:
         - name: node-k8s-demo
-          image: dipeshlohar348/node-k8s-demo:1.0
+          image: 577004484740.dkr.ecr.ap-south-1.amazonaws.com/hari/ubuntu:930cccb9746f546ded26f352071a66cf14c9236b
           ports:
             - containerPort: 3000
+            

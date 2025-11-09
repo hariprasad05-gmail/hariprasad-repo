@@ -78,6 +78,6 @@ jobs:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
           # Replace <deployment-name> and <container-name> with values from your manifest
-          kubectl set image deployment/<deployment-name> <container-name>=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --record
-          kubectl rollout status deployment/<deployment-name> --timeout=180s
+          kubectl set image deployment/node-k8s-demo node-k8s-demo=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --record
+          kubectl rollout status deployment/node-k8s-demo --timeout=180s
 # ...existing code...
