@@ -15,6 +15,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./template-vanilla
     env:
       IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
 
@@ -26,6 +29,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ./template-vanilla/package-lock.json
 
       - name: Install dependencies and build
         run: |
