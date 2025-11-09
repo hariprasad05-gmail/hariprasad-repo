@@ -1,0 +1,78 @@
+# ...existing code...
+name: Node.js Docker build & deploy to EKS (ECR)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to use for the build/push (optional). If empty, the commit SHA will be used.'
+        required: false
+        default: ''
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build || true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: "hari/ubuntu" # e.g. "hari/ubuntu" or "my-app"
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          echo "Building Docker image..."
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./Dockerfile .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushing images to ECR..."
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Configure kubectl for EKS
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws eks update-kubeconfig --name "hariprasad" --region $AWS_REGION
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Update Deployment image and wait for rollout
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: "hari/ubuntu"
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          # Replace <deployment-name> and <container-name> with values from your manifest
+          kubectl set image deployment/<deployment-name> <container-name>=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --record
+          kubectl rollout status deployment/<deployment-name> --timeout=180s
+# ...existing code...
