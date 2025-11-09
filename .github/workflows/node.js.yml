@@ -8,6 +8,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +18,6 @@ jobs:
       run:
         working-directory: ./template-vanilla
 
-
     strategy:
       matrix:
         node-version: [20.x]
@@ -25,20 +25,62 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Print current path
-      run: pwd
-
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: ./template-vanilla/package-lock.json
+    - name: print current path
+      run: pwd
     - run: npm ci
     - run: npm run build --if-present
     - name: upload artifact
-      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: build-artifact
         path: ./template-vanilla/dist
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifact
+        path: ./artifact
+        unzip: true 
+
+    - name: Zip artifact for deployment
+      run: |
+       zip -r ../nodejs-app-${{ github.sha }}.zip .
+       cd ..
+       ls -lh nodejs-app-${{ github.sha }}.zip
+       pwd
+       ls -lrt
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Verify ZIP exists
+      run: |
+        echo "Current path: $PWD"
+        find . -name "nodejs-app-*.zip" -type f
+
+    - name: Upload application bundle to S3
+      run: |
+        aws s3 cp ../nodejs-app-${{ github.sha }}.zip s3://elasticbeanstalk-ap-south-1-577004484740/nodejs-app-${{ github.sha }}.zip
+
+    - name: Create new Elastic Beanstalk application version
+      run: |
+        aws elasticbeanstalk create-application-version \
+          --application-name "${{ secrets.EB_APP_NAME }}" \
+          --version-label "${{ github.sha }}" \
+          --source-bundle S3Bucket="elasticbeanstalk-ap-south-1-577004484740",S3Key="nodejs-app-${{ github.sha }}.zip"
+
+    - name: Deploy new version to Elastic Beanstalk
+      run: |
+        aws elasticbeanstalk update-environment \
+          --environment-name "${{ secrets.EB_ENV_NAME }}" \
+          --version-label "${{ github.sha }}"

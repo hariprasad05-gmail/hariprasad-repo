@@ -1,33 +1,23 @@
-FROM node:18-alpine
+# Base image
+FROM node:22-alpine
 
+# Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
+# Copy only package files first (for caching)
+COPY template-vanilla/package*.json ./
+
+# Install dependencies
 RUN npm ci
 
-# Copy the rest of your application source code
-COPY . .
+# Copy the rest of the application
+COPY template-vanilla/ .
 
-# Build the application (adjust if your build output folder is different)
+# Build the app
 RUN npm run build --if-present
 
-# Debug step: list files to verify the build output directory
-RUN ls -la /app
+# Expose port (if applicable)
+EXPOSE 3000
 
-# Install Nginx in the same container
-RUN apk update && apk add nginx
-
-# Remove the default Nginx website content
-RUN rm -rf /usr/share/nginx/html/*
-
-# Copy the build output to Nginx's public folder
-# Update '/app/build' if your build output is in a different directory (e.g., '/app/dist')
-RUN cp -R /app/build /usr/share/nginx/html
-RUN cp -R /app/public /usr/share/nginx/html
-
-# Expose port 80 to serve the application
-EXPOSE 80
-
-# Start Nginx in the foreground
-CMD ["nginx", "-g", "daemon off;"]
+# Start command
+CMD ["npm", "start"]
